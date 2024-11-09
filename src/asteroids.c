@@ -225,7 +225,10 @@ int main(void) {
             float distSquare3 = distX3 * distX3 + distY3 * distY3;
 
             float distance1 = sqrt(distSquare1);
-            if(sqrt(distSquare1) < balls[i].radius) {
+            float distance2 = sqrt(distSquare2);
+            float distance3 = sqrt(distSquare3);
+            // this works, but looks unnatural, I should try to push both player and ball away from eachother
+            if(distance1 < balls[i].radius) {
                 balls[i].speed.x *= -1.0f;
                 balls[i].speed.y *= -1.0f;
                 // get balls seperated from player a bit (may not be needed)
@@ -242,6 +245,30 @@ int main(void) {
                 // RotateTriangle(&player.v2, &player.v1, frameRotationAngle);
                 // RotateTriangle(&player.v3, &player.v1, frameRotationAngle);
 
+                player.hit = true;
+                counter = 100;
+            } else if(distance2 < balls[i].radius) {
+                balls[i].speed.x *= -1.0f;
+                balls[i].speed.y *= -1.0f;
+                Vector2 normal = { distX2, distY2 };
+                normal.x /= distance2;
+                normal.y /= distance2;
+
+                float overlap = balls[i].radius - distance2;
+                balls[i].position.x -= normal.x * (overlap / 2);
+                balls[i].position.y -= normal.y * (overlap / 2);
+                player.hit = true;
+                counter = 100;
+            } else if(distance3 < balls[i].radius) {
+                balls[i].speed.x *= -1.0f;
+                balls[i].speed.y *= -1.0f;
+                Vector2 normal = { distX3, distY3 };
+                normal.x /= distance3;
+                normal.y /= distance3;
+
+                float overlap = balls[i].radius - distance3;
+                balls[i].position.x -= normal.x * (overlap / 2);
+                balls[i].position.y -= normal.y * (overlap / 2);
                 player.hit = true;
                 counter = 100;
             }
@@ -265,15 +292,13 @@ int main(void) {
             }
 
             if (player.hit) {
-                
+                // make player flash gold and red when hit to indicate damage
                 if (counter > 0) {
                     if (counter % 10 == 0 || counter % 5 == 0) {
                         DrawTriangle(player.v1, player.v2, player.v3, GOLD);
                     } else {
                         DrawTriangle(player.v1, player.v2, player.v3, RED);
                     }
-                    
-                    DrawText(TextFormat("counter: %d", counter), screenWidth / 2, 50, 25, WHITE);
                     counter--;
                 } 
                 if (counter <= 0) {
