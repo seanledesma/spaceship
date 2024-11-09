@@ -10,6 +10,10 @@ const int BORDER = 500;
 #define ballCount sizeof(balls) / sizeof(balls[0])
 
 const float SPEED = 10.0f;
+int counter = 0;
+
+
+
 // this uses both typedef and struct tag :)
 typedef struct Ball{
     Vector2 position;
@@ -24,6 +28,7 @@ typedef struct Player{
     Vector2 velocity;
     Vector2 direction;
     int lives;
+    bool hit;
 } Player;
 
 
@@ -52,6 +57,7 @@ int main(void) {
         .velocity = { 0.0f, 0.0f },
         .direction = { 0, -1 },
         .lives = 100,
+        .hit = false,
     };
 
     for(int i = 0; i < ballCount; i++) {
@@ -85,8 +91,8 @@ int main(void) {
             player.velocity.x = player.direction.x * SPEED;
             player.velocity.y = player.direction.y * SPEED;
         } else {
-            player.velocity.x *= 0.95;
-            player.velocity.y *= 0.95;
+            player.velocity.x *= 0.97;
+            player.velocity.y *= 0.97;
         }
 
         player.v1.x += player.velocity.x;
@@ -203,6 +209,52 @@ int main(void) {
                     balls[j].position.y += normal.y * (overlap / 2);
                 }
             }
+
+            // player - ball collisions
+            //this sucks in its current state
+            float distX1 = player.v1.x - balls[i].position.x;
+            float distY1 = player.v1.y - balls[i].position.y;
+            float distSquare1 = distX1 * distX1 + distY1 * distY1;
+
+            float distX2 = player.v2.x - balls[i].position.x;
+            float distY2 = player.v2.y - balls[i].position.y;
+            float distSquare2 = distX2 * distX2 + distY2 * distY2;
+
+            float distX3 = player.v3.x - balls[i].position.x;
+            float distY3 = player.v3.y - balls[i].position.y;
+            float distSquare3 = distX3 * distX3 + distY3 * distY3;
+
+            float distance1 = sqrt(distSquare1);
+            if(sqrt(distSquare1) < balls[i].radius) {
+                balls[i].speed.x *= -1.0f;
+                balls[i].speed.y *= -1.0f;
+                // get balls seperated from player a bit (may not be needed)
+                Vector2 normal = { distX1, distY1 };
+                normal.x /= distance1;
+                normal.y /= distance1;
+
+                float overlap = balls[i].radius - distance1;
+                balls[i].position.x -= normal.x * (overlap / 2);
+                balls[i].position.y -= normal.y * (overlap / 2);
+
+                // frameRotationAngle = 1.0f;
+                // totalRotationAngle += frameRotationAngle;
+                // RotateTriangle(&player.v2, &player.v1, frameRotationAngle);
+                // RotateTriangle(&player.v3, &player.v1, frameRotationAngle);
+
+                player.hit = true;
+                counter = 100;
+            }
+
+            // if (player.hit) {
+            //     for (int i = 0; i < 1000; i++) {
+            //         frameRotationAngle = 1.0f;
+            //         totalRotationAngle += frameRotationAngle;
+            //         RotateTriangle(&player.v2, &player.v1, frameRotationAngle);
+            //         RotateTriangle(&player.v3, &player.v1, frameRotationAngle);
+            //     }
+            //     player.hit = false;
+            // }
         }
 
         BeginDrawing();
@@ -212,7 +264,26 @@ int main(void) {
                 DrawCircleV(balls[i].position, (float) balls[i].radius, WHITE);
             }
 
-            DrawTriangle(player.v1, player.v2, player.v3, GOLD);
+            if (player.hit) {
+                
+                if (counter > 0) {
+                    if (counter % 10 == 0 || counter % 5 == 0) {
+                        DrawTriangle(player.v1, player.v2, player.v3, GOLD);
+                    } else {
+                        DrawTriangle(player.v1, player.v2, player.v3, RED);
+                    }
+                    
+                    DrawText(TextFormat("counter: %d", counter), screenWidth / 2, 50, 25, WHITE);
+                    counter--;
+                } 
+                if (counter <= 0) {
+                    player.hit = false;
+                }
+                
+            }else {
+                DrawTriangle(player.v1, player.v2, player.v3, GOLD);
+            }
+
 
             DrawFPS(10, 10);    
 
