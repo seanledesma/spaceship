@@ -3,9 +3,9 @@
 #include <stdlib.h>
 
 const int BORDER = 500;
-#define screenWidth 1920
+#define screenWidth 1280
 #define worldWidth screenWidth + BORDER
-#define screenHeight 1080
+#define screenHeight 720
 #define worldHeight screenHeight + BORDER
 #define ballCount sizeof(balls) / sizeof(balls[0])
 
@@ -124,64 +124,78 @@ int main(void) {
 
 
         for (int i = 0; i < ballCount; i++) {
-            // Move ball
+            // update balls position depending on its speed
             balls[i].position.x += balls[i].speed.x;
             balls[i].position.y += balls[i].speed.y;
 
-            // Wall collisions with position correction
+            // check for wall collisions, react accordingly + safety check to avoid balls clipping into wall
             if (balls[i].position.x >= (worldWidth - balls[i].radius)) {
-                balls[i].position.x = worldWidth - balls[i].radius;  // safety check to make sure balls don't clip into walls
-                balls[i].speed.x *= -1.0f;
-            // subtracting BORDER from radius to add padding so balls go out of frame
+                balls[i].position.x = worldWidth - balls[i].radius; // set ball just outside wall (no clip)
+                balls[i].speed.x *= -1.0f; // send ball in opposite x direction
             } else if (balls[i].position.x <= balls[i].radius - BORDER) {
                 balls[i].position.x = balls[i].radius - BORDER;  
-                balls[i].speed.x *= -1.0f;
+                balls[i].speed.x *= -1.0f; // send ball in opposity y direction
             }
-
+            // same as before but for floor and ceiling
             if (balls[i].position.y >= (worldHeight - balls[i].radius)) {
                 balls[i].position.y = worldHeight - balls[i].radius; 
                 balls[i].speed.y *= -1.0f;
             } else if (balls[i].position.y <= balls[i].radius - BORDER) {
-                balls[i].position.y = balls[i].radius - BORDER;  
+                balls[i].position.y = balls[i].radius - BORDER; 
                 balls[i].speed.y *= -1.0f;
             }
 
 
-            // Ball-ball collisions
+            // loop through all balls, check for collisions, update speed accordingly
             for (int j = i + 1; j < ballCount; j++) {
+                // getting the relative distance between two balls
                 float dx = balls[j].position.x - balls[i].position.x;
                 float dy = balls[j].position.y - balls[i].position.y;
                 float distanceSquared = dx * dx + dy * dy;
                 float radiusSum = balls[i].radius + balls[j].radius;
-
+                // A^2(dx) + B^2(dy) = C^2(distanceSquared)
+                // if C^2 (hypotenuse) is less than or equal to radius^2, collision!
+                // we could finish by calling sqrt(), but that is costly and not needed here
                 if (distanceSquared <= radiusSum * radiusSum) {
-                    // Calculate normal
+                    // once we know there is a collision, we need to figure out the new direction of the balls
+                    // the relationship between two points can be described as a vector, which has direction and magnitude (length)
+                    // the length in this case is the hypotenuse, which we don't care about, so we "normalize" the vector
+                    // by setting it's length to something standard, like 1, (which is known as a unit vector)
+                    // this makes it easier to deal with the part we do care about, the direction
                     Vector2 normal = { dx, dy };
-                    float distance = sqrtf(distanceSquared);
+                    float distance = sqrtf(distanceSquared); // hypotenuse/magnitude
                     normal.x /= distance;
                     normal.y /= distance;
+                    // now we have a normalized vector, but you may ask yourself why we divided distanceX and distanceY
+                    // by the sqrt of distanceSquared, and how does that make the magnitude 1? good question,
+                    // if you 'unwravel' what we've done so far it actually adds up to one, in this case
+                    // normal.x^2 + normal.y^2 = 1. 
 
-                    // Calculate relative velocity
+                    // due to the way positions are updated in this simulation, it is possible to detect a collision,
+                    // apply the new directions and speeds, loop through, and detect the collision a second time, either
+                    // due to the balls slightly overlapping or any other error in calculation. To avoid applying the 'bounce'
+                    // more than once to two balls, we can check if they are heading towards each other still, or if they are moving
+                    // away from each other. if they are moving away, we do not need to do anything more, but if they are heading
+                    // towards each other, we have not yet applied the bounce. To get this
                     Vector2 relativeVelocity = { balls[j].speed.x - balls[i].speed.x, balls[j].speed.y - balls[i].speed.y };
-
-                    // Calculate the velocity along the normal
                     float velocityAlongNormal = relativeVelocity.x * normal.x + relativeVelocity.y * normal.y;
 
-                    // If the balls are moving away from each other, don't do anything
+
+                    // if the balls are moving away from each other, don't do anything
                     if (velocityAlongNormal > 0)
                         continue;
 
-                    // Swap velocities along the normal direction
+                    // swap velocities along the normal direction
                     float restitution = 1.0f; // 1.0 for elastic collision (you can tweak it for less elastic collisions)
                     float impulseMagnitude = -(1 + restitution) * velocityAlongNormal;
 
-                    // Apply impulse to the balls
+                    // apply impulse to the balls
                     balls[i].speed.x -= impulseMagnitude * normal.x / 2;
                     balls[i].speed.y -= impulseMagnitude * normal.y / 2;
                     balls[j].speed.x += impulseMagnitude * normal.x / 2;
                     balls[j].speed.y += impulseMagnitude * normal.y / 2;
 
-                    // Push balls apart slightly to avoid sticking or repeated collisions
+                    // push balls apart slightly to avoid sticking
                     float overlap = radiusSum - distance;
                     balls[i].position.x -= normal.x * (overlap / 2);
                     balls[i].position.y -= normal.y * (overlap / 2);
@@ -189,25 +203,6 @@ int main(void) {
                     balls[j].position.y += normal.y * (overlap / 2);
                 }
             }
-
-            // player - ball collisions
-            float distX1 = player.v1.x - balls[i].position.x;
-            float distY1 = player.v1.y - balls[i].position.y;
-            float distSquare1 = distX1 * distX1 + distY1 * distY1;
-
-            float distX2 = player.v2.x - balls[i].position.x;
-            float distY2 = player.v2.y - balls[i].position.y;
-            float distSquare2 = distX2 * distX2 + distY2 * distY2;
-
-            float distX3 = player.v3.x - balls[i].position.x;
-            float distY3 = player.v3.y - balls[i].position.y;
-            float distSquare3 = distX3 * distX3 + distY3 * distY3;
-
-            if(sqrt(distSquare1) < balls[i].radius) {
-                balls[i].speed.x *= -1.0f;
-                balls[i].speed.y *= -1.0f;
-            }
-
         }
 
         BeginDrawing();
