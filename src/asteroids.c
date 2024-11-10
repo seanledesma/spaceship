@@ -27,7 +27,7 @@ typedef struct Player{
     Vector2 v3;
     Vector2 velocity;
     Vector2 direction;
-    int lives;
+    float health;
     bool hit;
 } Player;
 
@@ -54,9 +54,9 @@ int main(void) {
         .v1 = { screenWidth / 2, screenHeight / 2 },
         .v2 = { (screenWidth / 2) - 15, (screenHeight / 2) + 30 },
         .v3 = { (screenWidth / 2) + 15, (screenHeight / 2) + 30 },
-        .velocity = { 0.0f, 0.0f },
+        .velocity = { -1.1f, 1.1f },
         .direction = { 0, -1 },
-        .lives = 100,
+        .health = 100.0f,
         .hit = false,
     };
 
@@ -68,6 +68,12 @@ int main(void) {
     }
     
     float totalRotationAngle = 0.0f;
+    // used for health bar positioning
+    int top_bar = screenHeight / 4;
+    int bottom_bar = screenHeight / 2;
+    int new_top = top_bar;
+    int new_bottom = bottom_bar;
+
     SetTargetFPS(60);
     while (!WindowShouldClose()) {
 
@@ -87,12 +93,27 @@ int main(void) {
             sin(totalRotationAngle - PI/2)
         };
 
-        if (IsKeyDown(KEY_UP)) {
+        if (IsKeyDown(KEY_UP) && !player.hit) {
             player.velocity.x = player.direction.x * SPEED;
             player.velocity.y = player.direction.y * SPEED;
         } else {
-            player.velocity.x *= 0.97;
-            player.velocity.y *= 0.97;
+            // if(player.velocity.x > 0.01 || player.velocity.x < -0.01) {
+            //     player.velocity.x -= 0.01;
+            //     player.velocity.y -= 0.01;
+            //} 
+
+            //this keeps the player's velocity from going too low and screwing up the math
+            if (player.velocity.x < 1.1 && player.velocity.x > -1.1 && player.velocity.y < 1.1 && player.velocity.y > -1.1) {
+                //do nothing
+            } else {
+                player.velocity.x *= 0.97;
+                player.velocity.y *= 0.97;
+            }
+            // player.velocity.x *= 0.97;
+            // player.velocity.y *= 0.97;
+            // player.velocity.x -= 0.01;
+            // player.velocity.y -= 0.01;
+            
         }
 
         player.v1.x += player.velocity.x;
@@ -228,13 +249,48 @@ int main(void) {
             float distance2 = sqrt(distSquare2);
             float distance3 = sqrt(distSquare3);
             // this works, but looks unnatural, I should try to push both player and ball away from eachother
-            if(distance1 < balls[i].radius) {
+            if(distance1 <= balls[i].radius) {
+                player.hit = true;
+                player.health -= 5;
+                counter = 100;
                 balls[i].speed.x *= -1.0f;
                 balls[i].speed.y *= -1.0f;
                 // get balls seperated from player a bit (may not be needed)
                 Vector2 normal = { distX1, distY1 };
                 normal.x /= distance1;
                 normal.y /= distance1;
+
+                if(player.velocity.x < 1.0f && player.velocity.x > -1.0f) {
+                    if (player.velocity.x > 0) 
+                        player.velocity.x = 1.1f;
+                    if (player.velocity.x < 0)
+                        player.velocity.x = -1.1f;
+                }
+
+                if(player.velocity.y < 1.0f && player.velocity.y > -1.0f) {
+                    if (player.velocity.y > 0) 
+                        player.velocity.y = 1.1f;
+                    if (player.velocity.y < 0)
+                        player.velocity.y = -1.1f;
+                }
+
+                Vector2 relativeVelocity = { player.velocity.x - balls[i].speed.x, player.velocity.y - balls[i].speed.y };
+                float velocityAlongNormal = relativeVelocity.x * normal.x + relativeVelocity.y * normal.y;
+
+
+                // if the balls are moving away from each other, don't do anything
+                if (velocityAlongNormal > 0)
+                    continue;
+
+                // swap velocities along the normal direction
+                float restitution = 1.0f; // 1.0 for elastic collision (you can tweak it for less elastic collisions)
+                float impulseMagnitude = -(1 + restitution) * velocityAlongNormal;
+
+                // apply impulse to the balls
+                balls[i].speed.x -= impulseMagnitude * normal.x / 2;
+                balls[i].speed.y -= impulseMagnitude * normal.y / 2;
+                player.velocity.x += impulseMagnitude * normal.x / 2;
+                player.velocity.y += impulseMagnitude * normal.y / 2;
 
                 float overlap = balls[i].radius - distance1;
                 balls[i].position.x -= normal.x * (overlap / 2);
@@ -244,33 +300,99 @@ int main(void) {
                 // totalRotationAngle += frameRotationAngle;
                 // RotateTriangle(&player.v2, &player.v1, frameRotationAngle);
                 // RotateTriangle(&player.v3, &player.v1, frameRotationAngle);
-
+            } 
+            if(distance2 <= balls[i].radius) {
                 player.hit = true;
+                player.health -= 5;
                 counter = 100;
-            } else if(distance2 < balls[i].radius) {
                 balls[i].speed.x *= -1.0f;
                 balls[i].speed.y *= -1.0f;
                 Vector2 normal = { distX2, distY2 };
                 normal.x /= distance2;
                 normal.y /= distance2;
 
+                if(player.velocity.x < 1.0f && player.velocity.x > -1.0f) {
+                    if (player.velocity.x > 0) 
+                        player.velocity.x = 1.1f;
+                    if (player.velocity.x < 0)
+                        player.velocity.x = -1.1f;
+                }
+
+                if(player.velocity.y < 1.0f && player.velocity.y > -1.0f) {
+                    if (player.velocity.y > 0) 
+                        player.velocity.y = 1.1f;
+                    if (player.velocity.y < 0)
+                        player.velocity.y = -1.1f;
+                }
+
+                Vector2 relativeVelocity = { player.velocity.x - balls[i].speed.x, player.velocity.y - balls[i].speed.y };
+                float velocityAlongNormal = relativeVelocity.x * normal.x + relativeVelocity.y * normal.y;
+
+
+                // if the balls are moving away from each other, don't do anything
+                if (velocityAlongNormal > 0)
+                    continue;
+
+                // swap velocities along the normal direction
+                float restitution = 1.0f; // 1.0 for elastic collision (you can tweak it for less elastic collisions)
+                float impulseMagnitude = -(1 + restitution) * velocityAlongNormal;
+
+                // apply impulse to the balls
+                balls[i].speed.x -= impulseMagnitude * normal.x / 2;
+                balls[i].speed.y -= impulseMagnitude * normal.y / 2;
+                player.velocity.x += impulseMagnitude * normal.x / 2;
+                player.velocity.y += impulseMagnitude * normal.y / 2;
+
                 float overlap = balls[i].radius - distance2;
                 balls[i].position.x -= normal.x * (overlap / 2);
                 balls[i].position.y -= normal.y * (overlap / 2);
+
+            } 
+            if(distance3 <= balls[i].radius) {
                 player.hit = true;
+                player.health -= 5;
                 counter = 100;
-            } else if(distance3 < balls[i].radius) {
                 balls[i].speed.x *= -1.0f;
                 balls[i].speed.y *= -1.0f;
                 Vector2 normal = { distX3, distY3 };
                 normal.x /= distance3;
                 normal.y /= distance3;
 
+                if(player.velocity.x < 1.0f && player.velocity.x > -1.0f) {
+                    if (player.velocity.x > 0) 
+                        player.velocity.x = 1.1f;
+                    if (player.velocity.x < 0)
+                        player.velocity.x = -1.1f;
+                }
+
+                if(player.velocity.y < 1.0f && player.velocity.y > -1.0f) {
+                    if (player.velocity.y > 0) 
+                        player.velocity.y = 1.1f;
+                    if (player.velocity.y < 0)
+                        player.velocity.y = -1.1f;
+                }
+
+                Vector2 relativeVelocity = { player.velocity.x - balls[i].speed.x, player.velocity.y - balls[i].speed.y };
+                float velocityAlongNormal = relativeVelocity.x * normal.x + relativeVelocity.y * normal.y;
+
+
+                // if the balls are moving away from each other, don't do anything
+                if (velocityAlongNormal > 0)
+                    continue;
+
+                // swap velocities along the normal direction
+                float restitution = 1.0f; // 1.0 for elastic collision (you can tweak it for less elastic collisions)
+                float impulseMagnitude = -(1 + restitution) * velocityAlongNormal;
+
+                // apply impulse to the balls
+                balls[i].speed.x -= impulseMagnitude * normal.x / 2;
+                balls[i].speed.y -= impulseMagnitude * normal.y / 2;
+                player.velocity.x += impulseMagnitude * normal.x / 2;
+                player.velocity.y += impulseMagnitude * normal.y / 2;
+
                 float overlap = balls[i].radius - distance3;
                 balls[i].position.x -= normal.x * (overlap / 2);
                 balls[i].position.y -= normal.y * (overlap / 2);
-                player.hit = true;
-                counter = 100;
             }
 
             // if (player.hit) {
@@ -309,8 +431,25 @@ int main(void) {
                 DrawTriangle(player.v1, player.v2, player.v3, GOLD);
             }
 
+            // DrawText(TextFormat("player X velocity: %f", player.velocity.x), screenWidth / 2, 50, 25, WHITE);
+            // DrawText(TextFormat("player Y velocity: %f", player.velocity.y), 150, 50, 25, WHITE);
+            DrawText(TextFormat("HEALTH: %.0f", player.health), screenWidth / 7, 15, 20, WHITE);
 
-            DrawFPS(10, 10);    
+
+            //new_top += new_top / (player.health / 100);
+            // DrawRectangleLines(15, top_bar, screenWidth / 50, bottom_bar, GREEN);
+            // DrawRectangle(15, new_top, screenWidth / 50, new_bottom, GREEN);
+            //DrawRectangle()
+
+            DrawRectangleLines(screenWidth / 4, 15, screenWidth / 2, screenHeight / 30, GREEN);
+            DrawRectangle(screenWidth / 4, 15, (player.health / 100) * (screenWidth / 2), screenHeight / 30, GREEN);
+            // game over
+            if (player.health <= 0) {
+                DrawRectangle(0, 0, screenWidth, screenHeight, RED);
+                DrawText("GAME OVER", screenWidth / 3, screenHeight / 2, 50, WHITE);
+            }
+
+            //DrawFPS(10, 10);    
 
         EndDrawing();
     }
