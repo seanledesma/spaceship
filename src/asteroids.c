@@ -410,7 +410,7 @@ int main(void) {
             ClearBackground(BLACK);  
 
             for(int i = 0; i < (sizeof(balls) / sizeof(balls[0])); i++) {
-                DrawCircleLinesV(balls[i].position, (float) balls[i].radius, WHITE);
+                DrawCircleV(balls[i].position, (float) balls[i].radius, WHITE);
             }
 
             if (player.hit) {
